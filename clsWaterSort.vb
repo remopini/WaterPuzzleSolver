@@ -38,14 +38,16 @@ End Class
 Public Class clsMove
     Public FromVial As Integer
     Public ToVial As Integer
+    Public Color As Colors
 
-    Public Sub New(f As Integer, t As Integer)
+    Public Sub New(f As Integer, t As Integer, c As Colors)
         FromVial = f
         ToVial = t
+        Color = c
     End Sub
 
     Public Overrides Function ToString() As String
-        Return String.Format("{0}->{1}", FromVial + 1, ToVial + 1)
+        Return String.Format("{0:00} -> {1:00} ({2})", FromVial + 1, ToVial + 1, Color)
     End Function
 
 End Class
@@ -65,10 +67,26 @@ Public Class clsItem
 
 End Class
 
+Public Class clsSolution
+
+    Public moves As New List(Of clsMove)
+
+    Public Enum Strategy
+        Any = 0
+        Shortest = 1
+    End Enum
+
+    Public Sub New(m As List(Of clsMove))
+        'deep clone needed?
+        moves = m
+    End Sub
+End Class
+
 Public Class clsBoard
     Public Vials As New List(Of clsVial)
     Public IsSolved As Boolean = False
     Public HasValidMoves As Boolean = True
+    Public Errors As New List(Of String)
 
     Public Sub New(l As List(Of clsVial))
         Vials.AddRange(l)
@@ -81,6 +99,9 @@ Public Class clsBoard
         Next
     End Sub
 
+    ''' <summary>
+    ''' Update the state of the board (is it solved, has it moves left)
+    ''' </summary>
     Public Sub UpdateState()
         Dim state As Boolean = True
         For Each v As clsVial In Vials
@@ -90,19 +111,29 @@ Public Class clsBoard
         HasValidMoves = ValidMovesLeft.Count > 0
     End Sub
 
+    ''' <summary>
+    ''' Determine whether this is a valid board (i.e. there are vials and no color is present more often than the size of a vial).
+    ''' </summary>
+    ''' <returns>True if the board is a valid board, false otherwise</returns>
     Public Function ValidBoard() As Boolean
         Dim a As New Dictionary(Of Colors, Integer)
         Dim s As Colors
         Dim t As Integer
 
         'if board contains less than one vial then the board is invalid
-        If Vials.Count < 1 Then Return False
+        If Vials.Count < 1 Then
+            Errors.Add("No Vials found.")
+            Return False
+        End If
 
         t = Vials(0).Size
 
         For Each v As clsVial In Vials
             'if vials have different sizes then the board is invalid
-            If t <> v.Size Then Return False
+            If t <> v.Size Then
+                Errors.Add("Vials have different sizes.")
+                Return False
+            End If
 
             For p = 1 To t
                 s = v.GetPosition(p)
@@ -116,19 +147,28 @@ Public Class clsBoard
 
         For Each i As Colors In a.Keys
             'if there is less or more of one color to fill exactly one vial, the board is invalid
-            If a(i) <> t And i <> Colors.NONE Then Return False
+            If a(i) <> t And i <> Colors.NONE Then
+                Errors.Add(String.Format("Color {0} has wrong count of {1}.", i, a(i)))
+            End If
         Next
+
+        'if there are errors, the board is wrong...
+        If Errors.Count > 0 Then Return False
 
         'if we made it this far, the board should be ok...
         Return True
     End Function
 
+    ''' <summary>
+    ''' returns the amount of valid moves possible on the current board
+    ''' </summary>
+    ''' <returns>returns a list of valid moves</returns>
     Public Function ValidMovesLeft() As List(Of clsMove)
         Dim ValidMoves As New List(Of clsMove)
 
         For v1 As Integer = 0 To Vials.Count - 1
             For v2 As Integer = 0 To Vials.Count - 1
-                If IsValidMove(v1, v2) Then ValidMoves.Add(New clsMove(v1, v2))
+                If IsValidMove(v1, v2) Then ValidMoves.Add(New clsMove(v1, v2, Vials(v1).TakeOut(False).Color))
             Next
         Next
 
@@ -172,6 +212,10 @@ Public Class clsBoard
         Return False
     End Function
 
+    ''' <summary>
+    ''' Create a deep clone of the board (where every object is a NEW copy of the old one)
+    ''' </summary>
+    ''' <returns>a deep cloned copy of the board</returns>
     Function DeepClone() As clsBoard
         Dim l As New List(Of clsVial)
         Dim i As List(Of clsItem)
@@ -185,6 +229,10 @@ Public Class clsBoard
         Return New clsBoard(l)
     End Function
 
+    ''' <summary>
+    ''' Return a string representing the board
+    ''' </summary>
+    ''' <returns>The string representing the board</returns>
     Public Function BoardToString() As String
         Dim s As New List(Of String)
 
@@ -264,7 +312,7 @@ Public Class clsVial
         Dim c As Colors
 
         For Each i As String In Enumerable.Range(0, s.Length / 2).[Select](Function(_i) s.Substring(_i * 2, 2))
-            Select Case i
+            Select Case i.ToUpper
                 Case "VI"
                     c = Colors.VIOLET
                 Case "DG"
@@ -324,14 +372,13 @@ Public Class clsVial
         'move of a complete vial is pointless
         If ItemToPutIn.Size = _size Then Return False
 
-        'vial too little space
-        If VialSpace() < ItemToPutIn.Size Then Return False
-
         'cannot put in air
         If ItemToPutIn.Color = Colors.NONE Then Return False
 
-        'if vial is empty, put it in without any checks
+        'vial too little space
+        If VialSpace() < ItemToPutIn.Size Then Return False
 
+        'if vial is empty, put it in without any checks
         If _items.Count < 1 Then
             If Execute Then _items.Add(ItemToPutIn)
             Return True

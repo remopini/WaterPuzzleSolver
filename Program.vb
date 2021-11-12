@@ -3,56 +3,95 @@ Imports System
 Module Program
     Dim tree As clsSolutionTreeItem
     Dim treeitems As New HashSet(Of String)
+    Dim solutions As New List(Of clsSolution)
+    Dim strategy As clsSolution.Strategy
+    Dim minmoves As Integer = 2000
+    Dim movescount As Long = 0
+    Dim done As Boolean = False
+    Dim start As Long = 0
 
     Sub Main(args As String())
         'VialTests()
         'BoardTests()
         'TreeTests()
 
+        strategy = clsSolution.Strategy.Shortest
+
         Init()
 
         Console.WriteLine("Level to solve:")
         DisplayBoard(tree.board)
-
-        Console.WriteLine(String.Format("Seems like a valid board: {0}", IIf(tree.board.ValidBoard(), "YES", "NO")))
         Console.WriteLine()
+        Console.WriteLine("Strategy: {0}", strategy)
+        Console.WriteLine("Press ESC to stop iterating...")
 
-        Recursion(1, tree)
+        If Not tree.board.ValidBoard Then
+            Console.WriteLine("Seems like an invalid board:")
+            For Each e As String In tree.board.Errors
+                Console.WriteLine(e)
+            Next
+        Else
+            start = Now.Ticks
+            Recursion(1, tree)
+        End If
 
-        Console.WriteLine("Done")
+        'display all solutions
+        Dim s As Integer = 0
+        Dim found As Boolean = False
+
+        While Not found And s < solutions.Count
+            If solutions.ElementAt(s).moves.Count = minmoves Then
+                Console.WriteLine("Solved in {0} steps with the following moves:", solutions.ElementAt(s).moves.Count)
+                'DisplayBoard(t.board)
+                For c As Integer = 0 To Math.Min(solutions.ElementAt(s).moves.Count - 1, 100)
+                    Console.WriteLine("{0:00}: {1}", c + 1, solutions.ElementAt(s).moves(c))
+                Next
+                found = True
+            End If
+            s += 1
+        End While
+
+        Console.WriteLine("Done after {0:n} ms", (Now.Ticks - start) / 10000)
 
     End Sub
 
     Sub Recursion(level As Integer, t As clsSolutionTreeItem)
 
+        If done Then Exit Sub
+
+        If Console.KeyAvailable Then
+            If Console.ReadKey(True).Key = ConsoleKey.Escape Then
+                done = True
+                Exit Sub
+            End If
+        End If
+
+        movescount += 1
+
+        If movescount Mod 100000 = 0 Then Console.WriteLine("Currently on iteration {0:n0} after {1:n} ms", movescount, (Now.Ticks - start) / 10000)
+
         t.board.UpdateState()
 
         If t.board.IsSolved Then
-            Console.WriteLine(String.Format("Solved in {0} steps :", t.moves.Count))
-            DisplayBoard(t.board)
-            For c As Integer = 0 To Math.Min(t.moves.Count - 1, 100)
-                Console.WriteLine(t.moves(c))
-            Next
-            End
-        Else
-            If Not t.board.HasValidMoves Then
-                'Console.WriteLine(level & ": Deadend:")
-                'DisplayBoard(t.board)
-            Else
+            solutions.Add(New clsSolution(t.moves))
+            If minmoves > t.moves.Count Then
+                minmoves = Math.Min(minmoves, t.moves.Count)
+                Console.WriteLine("Found a solution with {0} moves in {1:n0} iterations.", t.moves.Count, movescount)
+            End If
+            If strategy = clsSolution.Strategy.Any Then done = True
+        End If
+
+        If Not done Then
+            If t.board.HasValidMoves Then
                 If level < 200 Then
                     Dim a As Integer = t.AddAllPossibleChildren(treeitems)
-                    If a = 0 Then
-                        'Console.WriteLine(level & ": Deadend:")
-                        'Display(t.board)
-                    Else
-                        'Console.WriteLine(a)
-                        For Each c As clsSolutionTreeItem In t.GetChildren
-                            Recursion(level + 1, c)
-                        Next
+                    If a > 0 Then
+                        Dim i As Integer = 0
+                        While Not done And i < t.GetChildren.Count
+                            Recursion(level + 1, t.GetChildren(i))
+                            i += 1
+                        End While
                     End If
-
-                Else
-                    Console.WriteLine("Tree Branch too deep...")
                 End If
             End If
         End If
@@ -60,6 +99,8 @@ Module Program
     End Sub
 
     Public Sub Init()
+        Dim boardstring As String
+
         'Dim level As New List(Of clsVial)
 
         'level.Add(New clsVial({Colors.GRAY, Colors.BROWN, Colors.RED, Colors.RED}, 4))
@@ -76,8 +117,17 @@ Module Program
 
         'tree = New clsSolutionTreeItem(New clsBoard(level))
 
-        Dim boardstring As String = "ORDGORPI REVIGRLG TADGLBOR GRLBPIGR BRDBPIVI REVIDBBR DGBRLGBR YEDBPILG GRRETAYE DBRELBVI LGYEDGTA LBORYETA -------- --------"
-
+        boardstring = "ORDGORPI REVIGRLG TADGLBOR GRLBPIGR BRDBPIVI REVIDBBR DGBRLGBR YEDBPILG GRRETAYE DBRELBVI LGYEDGTA LBORYETA -------- --------"
+        boardstring = "dbtabrre oryelggr orpibrta lglbdbdb pilbtare talbgror yevigrdg vibrdbdg brrepiye vilgpidg lbdgvire yeorgrlg -------- --------" 'lvl 165
+        boardstring = "lbdblgpi lgyegrye dbdgviye dbvigrlg vigrrepi gryepidb vidgrere pidglblb lgredglb -------- --------" 'lvl 166
+        boardstring = "retadbbr pidbreye lbdgvipi oryedgdg brtalgye pilbvire grorpilg lgyevita grlbbrdb ordblbre lgdgvigr orgrbrta -------- --------" 'lvl 171
+        boardstring = "orreredg dglglglb pivilbpi yeorrevi piretaye dgtaorta vipiorvi yelglbdg talblgye -------- --------" 'lvl 172
+        boardstring = "vilgyelb pireyebr dglblgor ordggrpi orgrlbre lgvilbdg reordbye vilgbrpi dgtavibr redbgrdb brgrtapi tadbyeta -------- --------" 'lvl 173
+        boardstring = "dgdgorgr lgyegrdb lbpibrvi lbdbpigr dbpiorpi tagryeor lgviorlg taviyebr lbredbbr yetavilg redgdgta rerebrlb -------- --------" 'lvl 175
+        boardstring = "lgvigrye vipiyedb vipigror dbrelgre tabrorlb taredbbr dbgrrelg lbdgyevi dgpitadg dgorbrgr pilborta brlgyelb -------- --------" 'lvl 184
+        boardstring = "lblgvilb pivilbvi lglgpi-- lb------ repilgpi rerevire" 'lvl 186
+        boardstring = "lgbryedb dglbreor dblgdgdb piyeyebr dgviorta tavitaor brgrlbdg grdbpire grrelbbr vigryeta virelgpi orpilblg -------- --------" 'lvl 187
+        boardstring = "dgbrdgdb vibrlglb pividgta repidbdg talgrelg vibrlbpi dbtatalb lbbrdblg virepire -------- --------" 'lvl 188
         tree = New clsSolutionTreeItem(New clsBoard(boardstring))
 
     End Sub
