@@ -2,7 +2,7 @@ Imports System
 
 Module Program
     Dim tree As clsSolutionTreeItem
-    Dim treeitems As New HashSet(Of String)
+    Dim treeitems As New Concurrent.ConcurrentDictionary(Of String, Byte)
     Dim solutions As New List(Of clsSolution)
     Dim strategy As clsSolution.Strategy
     Dim minmoves As Integer = 2000
@@ -83,14 +83,18 @@ Module Program
 
         If Not done Then
             If t.board.HasValidMoves Then
-                If level < 200 Then
+                ' dont bother continuing if we are already longer than the shortest solution...
+                If level < minmoves Then
                     Dim a As Integer = t.AddAllPossibleChildren(treeitems)
                     If a > 0 Then
-                        Dim i As Integer = 0
-                        While Not done And i < t.GetChildren.Count
-                            Recursion(level + 1, t.GetChildren(i))
-                            i += 1
-                        End While
+                        Parallel.ForEach(t.GetChildren, Sub(child)
+                                                            Recursion(level + 1, child)
+                                                        End Sub)
+                        'Dim i As Integer = 0
+                        'While Not done And i < t.GetChildren.Count
+                        '    Recursion(level + 1, t.GetChildren(i))
+                        '    i += 1
+                        'End While
                     End If
                 End If
             End If
@@ -128,16 +132,16 @@ Module Program
         boardstring = "lblgvilb pivilbvi lglgpi-- lb------ repilgpi rerevire" 'lvl 186
         boardstring = "lgbryedb dglbreor dblgdgdb piyeyebr dgviorta tavitaor brgrlbdg grdbpire grrelbbr vigryeta virelgpi orpilblg -------- --------" 'lvl 187
         boardstring = "dgbrdgdb vibrlglb pividgta repidbdg talgrelg vibrlbpi dbtatalb lbbrdblg virepire -------- --------" 'lvl 188
+        boardstring = "viretaye reorlgvi grorpire dgbrdbgr brvipipi dblbordg pilbreor brlglgdg yelggrgr vidglbye tadbyeta lbdbtabr -------- --------" 'lvl 192
+        boardstring = "dgordggr orlblgvi vipipigr dglgdgor pilbrelb yelglgye lborgrvi piregrre viyereye -------- --------" 'lvl 230
         tree = New clsSolutionTreeItem(New clsBoard(boardstring))
 
     End Sub
 
     Sub DisplayBoard(b As clsBoard)
-        Dim s As String = ""
         For l As Integer = b.Vials(0).Size To 1 Step -1
             For Each v As clsVial In b.Vials
-                s = Left(IIf(v.GetPosition(l) = Colors.NONE, "  ", v.GetPosition(l).ToString), 2)
-                Console.Write(String.Format("|{0}| ", s))
+                Console.Write("|{0}| ", Left(IIf(v.GetPosition(l) = Colors.NONE, "  ", v.GetPosition(l).ToString), 2))
             Next
             Console.WriteLine()
         Next
@@ -151,7 +155,7 @@ Module Program
 
     Sub DisplayVial(v As clsVial)
         For l As Integer = v.size To 1 Step -1
-            Console.WriteLine(String.Format("|{0}|", Left(IIf(v.GetPosition(l) = Colors.NONE, "  ", v.GetPosition(l).ToString), 2)))
+            Console.WriteLine("|{0}|", Left(IIf(v.GetPosition(l) = Colors.NONE, "  ", v.GetPosition(l).ToString), 2))
         Next
         Console.WriteLine("\--/ ")
         Console.WriteLine()
@@ -217,6 +221,7 @@ Module Program
         Next
         Console.WriteLine()
 
+        End
     End Sub
 
     Sub BoardTests()
@@ -229,13 +234,13 @@ Module Program
         DisplayBoard(board)
 
         'create board with 2 empty and 1 full monochrome vials of size 3
-        board = New clsBoard(New List(Of clsVial)({New clsVial(3), New clsVial(3), New clsVial({Colors.PINK, Colors.PINK, Colors.PINK}, 3)}))
+        board = New clsBoard(New List(Of clsVial)({New clsVial(3), New clsVial(3), New clsVial({Colors.PINK, Colors.PINK, Colors.PINK})}))
         board.UpdateState()
         Console.WriteLine("Solved/Valid Moves Left: {0}/{1} (should be true/2)", board.IsSolved, board.ValidMovesLeft.Count)
         DisplayBoard(board)
 
         'create board with 2 empty and 1 full polychrome vials of size 4
-        board = New clsBoard(New List(Of clsVial)({New clsVial(4), New clsVial(4), New clsVial({Colors.PINK, Colors.PINK, Colors.DBLUE, Colors.DBLUE}, 4)}))
+        board = New clsBoard(New List(Of clsVial)({New clsVial(4), New clsVial(4), New clsVial({Colors.PINK, Colors.PINK, Colors.DBLUE, Colors.DBLUE})}))
         board.UpdateState()
         Console.WriteLine("Solved/Valid Moves Left: {0}/{1} (should be false/2)", board.IsSolved, board.ValidMovesLeft.Count)
         For Each i As clsMove In board.ValidMovesLeft
@@ -245,7 +250,7 @@ Module Program
         DisplayBoard(board)
 
         'create board with 1 empty and 2 partially filled polychrome vials of size 5
-        board = New clsBoard(New List(Of clsVial)({New clsVial(5), New clsVial({Colors.DBLUE}, 5), New clsVial({Colors.PINK, Colors.PINK, Colors.DBLUE, Colors.DBLUE}, 5)}))
+        board = New clsBoard(New List(Of clsVial)({New clsVial(5), New clsVial({Colors.DBLUE, Colors.NONE, Colors.NONE, Colors.NONE, Colors.NONE}), New clsVial({Colors.PINK, Colors.PINK, Colors.DBLUE, Colors.DBLUE})}))
         board.UpdateState()
         Console.WriteLine("Solved/Valid Moves Left: {0}/{1} (should be false/4)", board.IsSolved, board.ValidMovesLeft.Count)
         For Each i As clsMove In board.ValidMovesLeft
@@ -267,18 +272,16 @@ Module Program
 
         DisplayBoard(board2)
 
-
         End
-
     End Sub
 
     Sub TreeTests()
         Dim board As clsBoard
         Dim tree As clsSolutionTreeItem
-        Dim history As New HashSet(Of String)
+        Dim history As New Concurrent.ConcurrentDictionary(Of String, Byte)
 
         'create  board with 3 vials of size 2 two filled with alternate colors
-        board = New clsBoard(New List(Of clsVial)({New clsVial({Colors.YELLOW, Colors.BROWN}, 2), New clsVial(2), New clsVial({Colors.YELLOW, Colors.BROWN}, 2)}))
+        board = New clsBoard(New List(Of clsVial)({New clsVial({Colors.YELLOW, Colors.BROWN}), New clsVial(2), New clsVial({Colors.YELLOW, Colors.BROWN})}))
         tree = New clsSolutionTreeItem(board)
 
         tree.board.UpdateState()

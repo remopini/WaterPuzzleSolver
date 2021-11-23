@@ -13,21 +13,19 @@
         Return children
     End Function
 
-    Public Sub AddChild(b As clsBoard, m As clsMove, ByRef e As HashSet(Of String))
-        If Not e.Contains(b.BoardToString) Then
+    Public Sub AddChild(b As clsBoard, m As clsMove, ByRef e As Concurrent.ConcurrentDictionary(Of String, Byte))
+        If Not e.ContainsKey(b.BoardToString) Then
             children.Add(New clsSolutionTreeItem(b, moves, m))
-            e.Add(b.BoardToString)
+            e.TryAdd(b.BoardToString, 0)
         End If
     End Sub
 
-    Public Function AddAllPossibleChildren(ByRef e As HashSet(Of String)) As Integer
+    Public Function AddAllPossibleChildren(ByRef e As Concurrent.ConcurrentDictionary(Of String, Byte)) As Integer
         If Not board.IsSolved And board.HasValidMoves Then
             For Each m As clsMove In board.ValidMovesLeft()
                 Dim b As clsBoard = board.DeepClone()
                 b.Move(m.FromVial, m.ToVial)
-                If Not e.Contains(b.BoardToString) Then
-                    AddChild(b, m, e)
-                End If
+                If Not e.ContainsKey(b.BoardToString) Then AddChild(b, m, e)
             Next
         End If
         Return board.ValidMovesLeft.Count
@@ -59,6 +57,11 @@ Public Class clsItem
     Public Sub New(c As Colors, s As Integer)
         Color = c
         Size = s
+    End Sub
+
+    Public Sub New(c As Colors)
+        Color = c
+        Size = 1
     End Sub
 
     Public Overrides Function ToString() As String
@@ -265,7 +268,7 @@ Public Class clsVial
     End Sub
 
     Public Sub New(s As String, size As Integer)
-        Me.New(clsVial.ColorStringToColorArray(s), size)
+        Me.New(clsVial.ColorStringToColorArray(s))
     End Sub
 
     Public Sub New(items As List(Of clsItem), size As Integer)
@@ -281,11 +284,9 @@ Public Class clsVial
         End If
     End Sub
 
-    Public Sub New(cols() As Colors, size As Integer)
+    Public Sub New(cols() As Colors)
 
-        If cols.Count > size Then Exit Sub
-
-        _size = size
+        _size = cols.Count
 
         For Each c As Colors In cols
             If c <> Colors.NONE Then
