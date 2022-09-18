@@ -133,7 +133,7 @@ Module Program
         boardstring = "lgbryedb dglbreor dblgdgdb piyeyebr dgviorta tavitaor brgrlbdg grdbpire grrelbbr vigryeta virelgpi orpilblg -------- --------" 'lvl 187
         boardstring = "dgbrdgdb vibrlglb pividgta repidbdg talgrelg vibrlbpi dbtatalb lbbrdblg virepire -------- --------" 'lvl 188
         boardstring = "viretaye reorlgvi grorpire dgbrdbgr brvipipi dblbordg pilbreor brlglgdg yelggrgr vidglbye tadbyeta lbdbtabr -------- --------" 'lvl 192
-        boardstring = "dgordggr orlblgvi vipipigr dglgdgor pilbrelb yelglgye lborgrvi piregrre viyereye -------- --------" 'lvl 230
+        'boardstring = "dgordggr orlblgvi vipipigr dglgdgor pilbrelb yelglgye lborgrvi piregrre viyereye -------- --------" 'lvl 230
         tree = New clsSolutionTreeItem(New clsBoard(boardstring))
 
     End Sub
